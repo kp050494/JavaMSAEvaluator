@@ -1,0 +1,16 @@
+# Fixed configuration for Challenge 5. The candidate's resilient client reads
+# these properties. The sliding window is kept large so the breaker stays
+# CLOSED for the whole test run - the fallback is exercised per failed call.
+upstream:
+  base-url: http://localhost:9999
+  timeout-ms: 1000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      productService:
+        sliding-window-size: 100
+        minimum-number-of-calls: 100
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 5s
+        register-health-indicator: false

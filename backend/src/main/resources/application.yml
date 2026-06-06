@@ -1,0 +1,65 @@
+spring:
+  application:
+    name: spring-arena-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/assessment_db}
+    username: ${SPRING_DATASOURCE_USERNAME:assessment}
+    password: ${SPRING_DATASOURCE_PASSWORD:assessment123}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    # Migrations embed Java starter code containing ${...}; never treat as Flyway placeholders.
+    placeholder-replacement: false
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      repositories:
+        enabled: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+server:
+  port: 8080
+
+judge0:
+  base-url: ${JUDGE0_BASE_URL:http://localhost:2358}
+  auth-token: ${JUDGE0_AUTH_TOKEN:}
+  # Judge0 language id used to run the multi-file Maven project.
+  language-id: ${JUDGE0_LANGUAGE_ID:89}
+  # A full Spring Boot Maven test run needs generous limits (see judge0.conf caps).
+  cpu-time-limit: ${JUDGE0_CPU_TIME_LIMIT:120}
+  wall-time-limit: ${JUDGE0_WALL_TIME_LIMIT:300}
+  memory-limit: ${JUDGE0_MEMORY_LIMIT:2048000}
+  # Max seconds to wait for a submission to finish (Maven builds are slow).
+  poll-timeout-seconds: 180
+  poll-interval-ms: 2000
+
+challenge:
+  tests-dir: ${CHALLENGE_TESTS_DIR:../challenge-tests}
+
+jwt:
+  secret: ${JWT_SECRET:dev-secret-change-in-prod-please-use-a-long-256-bit-key-0123456789}
+  expiry-hours: 8
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+
+websocket:
+  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:*}
+
+logging:
+  level:
+    com.assessment: INFO

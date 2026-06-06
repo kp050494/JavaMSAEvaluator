@@ -1,0 +1,16 @@
+{
+  "name": "java-msa-evaluator",
+  "version": "1.0.0",
+  "description": "Spring Arena - Live Java Microservices Assessment Platform with real code execution via Judge0 CE",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && mvn spring-boot:run",
+    "dev:frontend": "cd frontend && npm install && npm run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "docker:up": "docker-compose up --build",
+    "docker:down": "docker-compose down -v"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0"
+  }
+}

@@ -1,0 +1,26 @@
+# Java / Maven
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/
+
+# Node / Vite
+node_modules/
+dist/
+.vite/
+
+# Env
+.env
+
+# Warmed Maven repo for the custom Judge0 worker image (regenerate with scripts/warm-and-test.sh)
+.m2warm/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+*.log

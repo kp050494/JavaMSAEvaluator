@@ -1,0 +1,7 @@
+# Fixed configuration for Challenge 6. The candidate's JWT layer signs and
+# verifies tokens with this secret. The test suite forges an expired token
+# using the SAME secret, so it must remain stable.
+security:
+  jwt:
+    secret: assessment-challenge-6-super-secret-signing-key-please-change-0123456789
+    expiry-ms: 3600000
