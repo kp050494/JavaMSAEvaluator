@@ -126,7 +126,7 @@ export function useWebSocket(sessionId: string | undefined): UseWebSocketResult 
       return;
     }
     const client = new Client({
-      webSocketFactory: () => new SockJS('/ws'),
+      webSocketFactory: () => new SockJS(`${import.meta.env.VITE_API_URL ?? ''}/ws`),
       reconnectDelay: 3000,
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,

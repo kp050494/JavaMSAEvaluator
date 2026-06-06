@@ -72,6 +72,7 @@ services:
       JUDGE0_BASE_URL: http://judge0-server:2358
       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-change-in-production-please-use-a-long-key}
       CHALLENGE_TESTS_DIR: /challenge-tests
+      EXECUTION_MODE: ${EXECUTION_MODE:-judge0}
 
   frontend:
     build: ./frontend

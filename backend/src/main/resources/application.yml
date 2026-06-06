@@ -34,6 +34,11 @@ spring:
 server:
   port: 8080
 
+# How submissions are graded: "judge0" (real Maven/JUnit in the sandbox) or
+# "demo" (heuristic grading for free hosting with no privileged sandbox).
+execution:
+  mode: ${EXECUTION_MODE:judge0}
+
 judge0:
   base-url: ${JUDGE0_BASE_URL:http://localhost:2358}
   auth-token: ${JUDGE0_AUTH_TOKEN:}
