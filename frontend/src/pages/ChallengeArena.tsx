@@ -65,12 +65,14 @@ export default function ChallengeArena() {
     setSubmitting(true);
     ws.startRun();
     try {
-      await submitCode({
+      const resp = await submitCode({
         challengeId: activeId,
         code: snapshot.code,
         sessionId,
         elapsedSeconds: timer.seconds,
       });
+      // Poll for the result as a fallback in case the WebSocket stream is unavailable.
+      ws.trackSubmission(resp.submissionId);
     } catch {
       // surfaced via the analysis log / error state when the WS misses it
     } finally {

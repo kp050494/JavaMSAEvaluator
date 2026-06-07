@@ -68,7 +68,11 @@ public class SecurityConfig {
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Content-Disposition"));
-        config.setAllowCredentials(false);
+        // SockJS sends its /ws/info request with credentials mode "include", so the
+        // response must carry Access-Control-Allow-Credentials: true. With
+        // allowedOriginPatterns the wildcard is reflected back as the actual origin,
+        // which is valid together with credentials.
+        config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
