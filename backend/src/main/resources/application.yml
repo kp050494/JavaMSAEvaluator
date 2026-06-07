@@ -34,10 +34,30 @@ spring:
 server:
   port: 8080
 
-# How submissions are graded: "judge0" (real Maven/JUnit in the sandbox) or
-# "demo" (heuristic grading for free hosting with no privileged sandbox).
+# How submissions are graded:
+#   "paiza"  (default) - real compile+run of single-file Java via the open Paiza.io API,
+#   "piston"           - real compile+run via a (self-hosted) Piston instance,
+#   "judge0"           - real Maven/JUnit in a self-hosted Judge0 sandbox,
+#   "demo"             - heuristic grading (no execution).
 execution:
-  mode: ${EXECUTION_MODE:judge0}
+  mode: ${EXECUTION_MODE:paiza}
+
+# Paiza.io code-execution API (open; api_key "guest" needs no signup).
+paiza:
+  base-url: ${PAIZA_BASE_URL:https://api.paiza.io}
+  api-key: ${PAIZA_API_KEY:guest}
+  language: ${PAIZA_LANGUAGE:java}
+  poll-timeout-seconds: ${PAIZA_POLL_TIMEOUT_SECONDS:60}
+  poll-interval-ms: ${PAIZA_POLL_INTERVAL_MS:1500}
+
+# Self-hosted Piston (only used when execution.mode=piston). The public emkc.org
+# endpoint became whitelist-only in 2026, so point this at your own instance.
+piston:
+  execute-url: ${PISTON_EXECUTE_URL:http://localhost:2000/api/v2/execute}
+  language: ${PISTON_LANGUAGE:java}
+  version: ${PISTON_VERSION:15.0.2}
+  run-timeout-ms: ${PISTON_RUN_TIMEOUT_MS:10000}
+  compile-timeout-ms: ${PISTON_COMPILE_TIMEOUT_MS:10000}
 
 judge0:
   base-url: ${JUDGE0_BASE_URL:http://localhost:2358}

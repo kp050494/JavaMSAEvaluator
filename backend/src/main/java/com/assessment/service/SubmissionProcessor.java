@@ -50,6 +50,12 @@ public class SubmissionProcessor {
 
             ExecutionResult execution = executor.run(challenge, ctx.code());
 
+            // No parsed results usually means the code didn't compile — surface it.
+            if (execution.results().isEmpty()) {
+                webSocketService.send(sessionId, ProgressMessage.step(
+                        "COMPILE_ERROR", firstLines(execution.log(), 15), id));
+            }
+
             for (TestCaseResult r : execution.results()) {
                 String msg = r.passed() ? "passed" : (r.message() == null ? "failed" : r.message());
                 webSocketService.send(sessionId, ProgressMessage.testResult(id, r.testName(), r.passed(), msg));
@@ -73,6 +79,18 @@ public class SubmissionProcessor {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static String firstLines(String text, int max) {
+        if (text == null || text.isBlank()) {
+            return "Your code produced no test output.";
+        }
+        String[] lines = text.split("\\R");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < Math.min(max, lines.length); i++) {
+            sb.append(lines[i]).append('\n');
+        }
+        return sb.toString().strip();
     }
 
     /** Minimal data the background thread needs; avoids passing detached entities. */

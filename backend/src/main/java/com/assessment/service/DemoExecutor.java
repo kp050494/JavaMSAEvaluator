@@ -28,40 +28,42 @@ public class DemoExecutor implements SubmissionExecutor {
     private static final Map<String, String[][]> CHECKS = Map.of(
             "challenge-1", new String[][]{
                     {"new\\s+Product"},
-                    {"new\\s+Product"},
-                    {"@GetMapping\\s*\\(\\s*\"/\\{id\\}\"|@PathVariable"},
-                    {"ResponseStatusException|NOT_FOUND"},
-                    {"@PostMapping", "CREATED|status\\(\\s*201|\\b201\\b"}
+                    {"\\+\\+|\\+\\s*1|incrementAndGet"},
+                    {"\\breturn\\b"},
+                    {"findById|for\\s*\\(|stream\\("},
+                    {"return\\s+null"}
             },
             "challenge-2", new String[][]{
-                    {"@Service"},
-                    {"@PostMapping", "CREATED|\\b201\\b"},
-                    {"@Valid"},
-                    {"@Valid"},
-                    {"@GetMapping"}
+                    {"isEmpty|new\\s+ArrayList|List\\.of"},
+                    {"name|trim|isBlank|isEmpty"},
+                    {"price\\b"},
+                    {"add\\(|\\.add\\("}
             },
             "challenge-3", new String[][]{
-                    {"extends\\s+JpaRepository"},
-                    {"findByCategory"},
-                    {"findByPriceLessThan"},
-                    {"extends\\s+JpaRepository"}
+                    {"\\.add\\(|save"},
+                    {"findById|for\\s*\\(|stream\\("},
+                    {"findByCategory|getCategory|\\.category|equals\\("},
+                    {"findByPriceLessThan|\\.price|<\\s*max"},
+                    {"isEmpty|new\\s+ArrayList"}
             },
             "challenge-4", new String[][]{
-                    {"@ExceptionHandler", "ResourceNotFoundException"},
-                    {"MethodArgumentNotValidException"},
-                    {"Exception\\.class|INTERNAL_SERVER_ERROR|\\b500\\b"}
+                    {"return\\s+stock\\s*-\\s*qty|stock\\s*-\\s*qty"},
+                    {"stock\\s*-\\s*qty|return\\s+0"},
+                    {"IllegalArgumentException"},
+                    {"IllegalStateException"}
             },
             "challenge-5", new String[][]{
-                    {"RestTemplate", "/products"},
-                    {"@CircuitBreaker", "fallback"},
-                    {"setReadTimeout|ReadTimeout|Duration\\.ofMillis|[Tt]imeout"}
+                    {"upstream\\.get\\(\\)|\\.get\\(\\)"},
+                    {"return\\s+fallback|fallback"},
+                    {"for\\s*\\(|while\\s*\\(|maxAttempts"},
+                    {"catch\\s*\\("}
             },
             "challenge-6", new String[][]{
-                    {"/login", "token"},
-                    {"authenticated\\s*\\(\\s*\\)"},
-                    {"OncePerRequestFilter|Bearer "},
-                    {"parseSignedClaims|verifyWith|validateAndGetSubject"},
-                    {"SC_UNAUTHORIZED|UNAUTHORIZED|\\b401\\b"}
+                    {"user|\\+\\s*\":\"|return"},
+                    {"now\\s*<|expiry|exp|parseLong"},
+                    {"now\\s*<|expiry|exp|parseLong"},
+                    {"substring|split|indexOf|lastIndexOf"},
+                    {"try|catch|indexOf|return\\s+false"}
             }
     );
 

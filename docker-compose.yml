@@ -27,7 +27,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # Judge0 is only needed for EXECUTION_MODE=judge0. It requires privileged Docker,
+  # so it is opt-in via the "judge0" compose profile:  docker compose --profile judge0 up
   judge0-server:
+    profiles: ["judge0"]
     build:
       context: .
       dockerfile: docker/judge0/Dockerfile
@@ -40,6 +43,7 @@ services:
     restart: always
 
   judge0-workers:
+    profiles: ["judge0"]
     build:
       context: .
       dockerfile: docker/judge0/Dockerfile
@@ -62,8 +66,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      judge0-server:
-        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/assessment_db
       SPRING_DATASOURCE_USERNAME: assessment
@@ -72,7 +74,7 @@ services:
       JUDGE0_BASE_URL: http://judge0-server:2358
       JWT_SECRET: ${JWT_SECRET:-your-256-bit-secret-change-in-production-please-use-a-long-key}
       CHALLENGE_TESTS_DIR: /challenge-tests
-      EXECUTION_MODE: ${EXECUTION_MODE:-judge0}
+      EXECUTION_MODE: ${EXECUTION_MODE:-paiza}
 
   frontend:
     build: ./frontend

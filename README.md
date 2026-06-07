@@ -1,271 +1,202 @@
-# 🏟️ Spring Arena — Live Java Microservices Assessment Platform
+# 🏟️ Spring Arena — Live Java Coding Assessment Platform
 
-A full-stack platform that gives candidates **six Spring Boot challenges** and grades
-them with **real code execution** — their code is injected into pre-built Maven
-projects, compiled, and run against **JUnit 5 + Spring MockMvc** suites via a
-self-hosted **Judge0 CE** engine. Results stream back to the browser live over
-WebSocket. 100% free & open source.
+A full-stack platform that gives candidates **six Java challenges** and grades them with
+**real code execution**: the candidate's class is assembled with a hidden test harness into
+a single Java program, **compiled and run** on a code-execution API, and the per-test
+results stream back to the browser live over WebSocket. 100% free & open source — and
+free to host.
 
 ```
-React + Vite (Monaco)  ──REST/WS──►  Spring Boot API  ──►  Judge0 CE  ──► Maven + JUnit
+React + Vite (Monaco)  ──REST/WS──►  Spring Boot API  ──HTTP──►  Code-exec API (Paiza/Piston)
                                           │
-                                  PostgreSQL + Redis
+                                  PostgreSQL  (+ optional Redis)
 ```
 
 ---
 
-## ✨ What makes it "real"
+## ✨ How real execution works
 
-There is **no static analysis and no string matching**. When a candidate clicks
-**Run Tests**:
+There is **no static analysis and no string matching** for the score. When a candidate
+clicks **Run Tests**:
 
-1. Their code is injected into a complete Maven project under `challenge-tests/`.
-2. The whole project is zipped, base64-encoded, and sent to **Judge0 CE**.
-3. Judge0 compiles it and runs the real **JUnit 5 / MockMvc** suite.
-4. A JUnit `TestWatcher` prints machine-readable `JUNIT_RESULT::` markers to stdout.
-5. The backend parses those markers, persists per-test results, and streams
-   `COMPILING → RUNNING_TESTS → TEST_RESULT → COMPLETE` to the UI over STOMP/WebSocket.
-6. The score is `passed / total` of actual test outcomes.
+1. The backend loads that challenge's **harness** (`backend/src/main/resources/challenges/<slug>.harness.java`)
+   — a single file containing any *given* classes plus a `public class Main` that
+   instantiates the candidate's class, calls its methods, and prints
+   `TEST_PASS::<name>` / `TEST_FAIL::<name>::<message>`.
+2. The candidate's code is injected at the `// __CANDIDATE_CODE__` placeholder
+   (`HarnessSupport` strips `package`/`import` lines and demotes any `public` top-level
+   type so it inlines cleanly), producing one runnable `Main.java`.
+3. That file is sent to a **code-execution API**, which **compiles and runs** it.
+4. The backend parses the `TEST_PASS::` / `TEST_FAIL::` markers from stdout into per-test
+   results, computes the score (`passed / total`), persists everything, and streams
+   `COMPILING → RUNNING → TEST_RESULT… → COMPLETE` over STOMP/WebSocket.
+
+### Execution modes (`EXECUTION_MODE`)
+
+| Mode | Provider | Needs | Use |
+|------|----------|-------|-----|
+| `paiza` *(default)* | **Paiza.io** API (`api_key=guest`, no signup) | just outbound HTTP | local & free hosting |
+| `piston` | a **self-hosted** Piston instance (`PISTON_EXECUTE_URL`) | your own Piston | private/high-volume |
+| `judge0` | self-hosted **Judge0** (Maven/JUnit sandbox) | privileged Docker + custom worker | full Spring-style grading |
+| `demo` | heuristic regex grader | nothing | offline showcase, no execution |
+
+> The public **emkc.org Piston** API became **whitelist-only in Feb 2026**, so the default
+> provider is **Paiza**. Point `EXECUTION_MODE=piston` + `PISTON_EXECUTE_URL` at your own
+> Piston if you prefer to self-host.
+
+---
+
+## 🧩 The 6 Challenges (plain Java)
+
+Each challenge asks the candidate to implement one small class. The harness (given classes +
+tests) is server-side and never shown.
+
+| # | Title | Difficulty | Category | Candidate implements |
+|---|-------|------------|----------|----------------------|
+| 1 | Product Catalogue | EASY | Collections | `ProductService` — `add`, `getAll`, `findById` (auto-increment ids) |
+| 2 | Input Validation | EASY | Validation | `ProductValidator.validate(name, price)` → list of error messages |
+| 3 | In-Memory Repository | MEDIUM | Data Filtering | `ProductRepository` — `save`/`findAll`/`findById`/`findByCategory`/`findByPriceLessThan` |
+| 4 | Business Rules & Exceptions | MEDIUM | Exceptions | `OrderService.reserve(stock, qty)` (throws `IllegalArgument`/`IllegalState`) |
+| 5 | Retry & Fallback | HARD | Resilience | `ResilientClient.callWithFallback(supplier, fallback, maxAttempts)` |
+| 6 | Stateless Tokens | MEDIUM | Security | `TokenService` — `issue`/`isValid`/`subject` |
+
+Reference solutions (answer key) live in [`challenge-solutions/`](challenge-solutions/).
 
 ---
 
 ## 📋 Prerequisites
 
 - **Docker Desktop** (includes Docker Compose) — recommended path
-- **Java 17+** and **Maven 3.9+** — only for local dev without Docker
-- **Node 18+** — only for local dev without Docker
-- **Git**
+- Outbound internet (the default `paiza` executor calls the Paiza.io API)
+- For local dev without Docker: **Java 17+**, **Maven 3.9+**, **Node 18+**
 
 ---
 
-## 🚀 Quick Start (Docker — recommended)
+## 🚀 Quick Start (Docker)
 
 ```bash
 git clone <repo>
 cd JavaMSAEvaluator
-cp .env.example .env          # adjust JWT_SECRET / passwords if you like
-
-# 1. Warm a Maven repo for the 6 challenges (also runs the suites once).
-#    Produces ./.m2warm, which is baked into the custom Judge0 worker image.
-bash scripts/warm-and-test.sh
-
-# 2. Build + start everything.
 docker compose up --build
-# ⏳ Wait ~2-3 minutes for Judge0 to initialise its DB on first boot.
+# Frontend: http://localhost:5173   Backend: http://localhost:8080
 ```
 
-> **Why the warm step?** Real test execution needs a Java 17 + Maven toolchain
-> *inside* the Judge0 sandbox, which is network-isolated. The custom worker image
-> (`docker/judge0/Dockerfile`) bakes in JDK 17, Maven, and the pre-warmed offline
-> repository so `mvn -o test` runs without network access. See
-> [Real execution & the custom Judge0 worker](#-real-execution--the-custom-judge0-worker).
+This starts **postgres + redis + backend (paiza mode) + frontend** — no privileged
+containers. Flyway creates the schema and seeds the 6 challenges on first boot.
 
-| Service       | URL                     |
-|---------------|-------------------------|
-| Frontend      | http://localhost:5173   |
-| Backend API   | http://localhost:8080   |
-| Judge0 CE     | http://localhost:2358   |
-| PostgreSQL    | localhost:5432          |
-| Redis         | localhost:6379          |
+Stop and wipe data: `docker compose down -v`.
 
-Stop and wipe volumes: `docker compose down -v`.
+> Want the heavyweight Judge0/Maven path instead? `docker compose --profile judge0 up --build`
+> and set `EXECUTION_MODE=judge0` (see the Judge0 section below).
 
 ---
 
 ## 🧑‍💻 Local Dev (without Docker)
 
 ```bash
-# Terminal 1 — infrastructure + execution engine
-docker compose up postgres redis judge0-server judge0-workers
+# Terminal 1 — Postgres (+ optional Redis)
+docker compose up postgres redis
 
-# Terminal 2 — backend (reads challenge-tests from ../challenge-tests by default)
+# Terminal 2 — backend (defaults to EXECUTION_MODE=paiza)
 cd backend && mvn spring-boot:run
 
 # Terminal 3 — frontend (Vite proxies /api and /ws to :8080)
 cd frontend && npm install && npm run dev
 ```
 
-Or, with the root helper scripts:
+Root helper scripts: `npm run dev`, `npm run docker:up`, `npm run docker:down`.
 
-```bash
-npm run dev        # runs backend + frontend together (needs infra already up)
-npm run docker:up  # docker compose up --build
-npm run docker:down
-```
+---
+
+## ☁️ Free Hosting
+
+Host the whole thing for free **with real execution**: **Render** (backend Docker + frontend
+static site) + **Supabase** (PostgreSQL) + **Upstash** (optional Redis) + **Paiza** (execution).
+A Render Blueprint ([`render.yaml`](render.yaml)) defines both services.
+
+👉 Full step-by-step in **[DEPLOY.md](DEPLOY.md)**.
+
+Quick map:
+- `EXECUTION_MODE=paiza` — real execution over plain HTTP, no privileged sandbox.
+- `SPRING_DATASOURCE_URL/USERNAME/PASSWORD` — Supabase (`?sslmode=require`).
+- `SPRING_DATA_REDIS_URL=rediss://…` — Upstash (optional; Lettuce TLS).
+- `VITE_API_URL` — the backend's public URL (frontend build-time).
+- `CORS_ALLOWED_ORIGINS` / `WEBSOCKET_ALLOWED_ORIGINS` — your frontend origin.
 
 ---
 
 ## 🔐 Recruiter Login
 
 ```
-URL:      http://localhost:5173/recruiter/login
+URL:      /recruiter/login
 Username: admin
 Password: admin123
 ```
-
-The admin account is seeded (and its password re-hashed with BCrypt) on startup by
-`DataInitializer`, so the documented credentials always work. Change them via the
-`RECRUITER_ADMIN_USERNAME` / `RECRUITER_ADMIN_PASSWORD` environment variables.
+Seeded (and re-hashed with BCrypt) at startup by `DataInitializer`; override with
+`RECRUITER_ADMIN_USERNAME` / `RECRUITER_ADMIN_PASSWORD`.
 
 ---
 
 ## 🎯 Candidate Flow
 
-1. Open http://localhost:5173 → **Candidate Assessment**.
-2. Enter name + email → a session JWT is issued and a `CandidateSession` is created.
-3. Solve challenges in the **Monaco editor** (VS Code in the browser).
-4. Click **Run Tests** (or `Ctrl+Enter`) — code is compiled and tested *for real*.
-   Watch the live log + animated pass/fail list.
-5. Click **Submit All & Finish** → the session is scored and you land on the report.
+1. Open the app → **Candidate Assessment** → enter name + email (issues a session JWT).
+2. Solve challenges in the **Monaco editor**.
+3. **Run Tests** (`Ctrl+Enter`) compiles & runs your code and streams a live
+   `✓ PASS / ✗ FAIL …  ✅ CHALLENGE PASSED — n/n · score%` breakdown.
+4. **Submit All & Finish** → scored report (radar + per-challenge bars, code viewer).
 
 ### Keyboard shortcuts
-
-| Shortcut       | Action                      |
-|----------------|-----------------------------|
-| `Ctrl+Enter`   | Run tests for the challenge |
-| `Ctrl+H`       | Toggle hints drawer         |
-| `Ctrl+1…6`     | Switch to challenge N       |
-| `Ctrl+S`       | Force-save code snapshot    |
-
-Code is auto-saved to `localStorage` every 30s per (session, challenge).
-
----
-
-## 🧩 The 6 Challenges
-
-| # | Title                              | Difficulty | Category        | What it tests |
-|---|------------------------------------|------------|-----------------|---------------|
-| 1 | REST Controller Basics             | EASY       | REST API        | `@RestController`, `@GetMapping`/`@PostMapping`, `@PathVariable`, `ResponseEntity`, 404 via `ResponseStatusException` |
-| 2 | Service Layer & Bean Validation    | EASY       | Validation      | `@Service` + constructor injection, `@Valid`, `@NotBlank`/`@Positive` → 400, 201 Created |
-| 3 | Spring Data JPA Repository         | MEDIUM     | Persistence     | `JpaRepository`, derived queries `findByCategory` / `findByPriceLessThan`, H2 schema |
-| 4 | Global Exception Handling          | MEDIUM     | Error Handling  | `@RestControllerAdvice`, consistent `ErrorResponse` (timestamp/status/message/path), field errors, 500 mapping |
-| 5 | Resilience: Circuit Breaker        | HARD       | Resilience      | Resilience4j `@CircuitBreaker` + fallback, RestTemplate timeouts (verified with WireMock) |
-| 6 | Stateless JWT Security             | MEDIUM     | Security        | Spring Security 6 `SecurityFilterChain`, `OncePerRequestFilter`, JWT issue/verify, 401 on missing/expired |
-
-Each challenge folder under `challenge-tests/` is a complete Maven project:
-
-```
-challenge-tests/challenge-1/
-├── pom.xml
-├── src/main/java/com/assessment/
-│   ├── Application.java            ← always present
-│   ├── model/Product.java         ← provided (fixed)
-│   └── CANDIDATE_SUBMISSION.java   ← replaced at runtime with candidate code
-└── src/test/java/com/assessment/
-    ├── ProductControllerTest.java  ← pre-written MockMvc suite
-    └── support/ResultPrinter.java  ← emits JUNIT_RESULT:: markers to stdout
-```
-
-> The reference implementation inside `CANDIDATE_SUBMISSION.java` keeps each
-> template compilable and serves as the "correct answer" the suite targets.
-> When a candidate submits a `public` type, the backend names the file after it
-> so `javac` is satisfied.
+`Ctrl+Enter` run · `Ctrl+H` hints · `Ctrl+1…6` switch challenge · `Ctrl+S` save snapshot.
+Code auto-saves to `localStorage` per (session, challenge).
 
 ---
 
 ## 🌐 REST API
 
-| Method | Endpoint                                   | Auth      | Purpose |
-|--------|--------------------------------------------|-----------|---------|
-| POST   | `/api/auth/login`                          | —         | Candidate login (name+email) → session JWT |
-| POST   | `/api/auth/recruiter/login`                | —         | Recruiter login (admin/admin123) |
-| GET    | `/api/challenges`                          | candidate | List all challenges |
-| GET    | `/api/challenges/{id}`                      | candidate | Challenge detail (description, hints, concepts, test cases) |
-| POST   | `/api/submissions`                         | candidate | Submit code → async Judge0 run (202) |
-| GET    | `/api/submissions/{id}`                     | candidate | Submission result |
-| GET    | `/api/sessions/{sessionId}`                 | candidate | Full session with submissions |
-| GET    | `/api/sessions/{sessionId}/report`          | candidate | Computed report |
-| POST   | `/api/sessions/{sessionId}/complete`        | candidate | End session, return report |
-| GET    | `/api/recruiter/sessions`                   | recruiter | All sessions |
-| GET    | `/api/recruiter/sessions/{id}`              | recruiter | Full session report |
-| GET    | `/api/recruiter/sessions/{id}/export`       | recruiter | Export report as downloadable JSON |
+| Method | Endpoint | Auth | Purpose |
+|--------|----------|------|---------|
+| GET    | `/api/health` | — | liveness + execution mode |
+| POST   | `/api/auth/login` | — | candidate login (name+email) → session JWT |
+| POST   | `/api/auth/recruiter/login` | — | recruiter login |
+| GET    | `/api/challenges` / `/api/challenges/{id}` | candidate | list / detail |
+| POST   | `/api/submissions` | candidate | submit code → async execution (202) |
+| GET    | `/api/submissions/{id}` | candidate | submission result |
+| GET    | `/api/sessions/{id}` · `/report` · POST `/complete` | candidate | session + report |
+| GET    | `/api/recruiter/sessions` · `/{id}` · `/{id}/export` | recruiter | dashboard + JSON export |
 
-WebSocket (STOMP over SockJS): connect at `/ws`, subscribe to
-`/topic/submission/{sessionId}`.
+WebSocket (STOMP/SockJS): connect at `/ws`, subscribe to `/topic/submission/{sessionId}`.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-                ┌──────────────────────────────────────────────────────────┐
-                │                   assessment-network                       │
-                │                                                            │
-  Browser ──────┼──►  ┌─────────────┐   REST/WS    ┌──────────────────────┐ │
-  :5173         │     │  frontend    │ ───────────► │      backend          │ │
-  (nginx/Vite)  │     │ React+Monaco │              │  Spring Boot :8080     │ │
-                │     └─────────────┘              │  ├ Judge0Service        │ │
-                │                                   │  ├ CodeInjectionService │ │
-                │                                   │  ├ WebSocket (STOMP)    │ │
-                │                                   │  └ JWT security         │ │
-                │                                   └───────┬───────┬────────┘ │
-                │                                           │       │          │
-                │                  ┌────────────────────────┘       │          │
-                │                  ▼                                 ▼          │
-                │      ┌─────────────────────┐            ┌──────────────────┐ │
-                │      │     Judge0 CE        │            │  PostgreSQL :5432 │ │
-                │      │  server + workers    │            │  assessment_db    │ │
-                │      │  (compiles & runs    │            │  judge0 (db)      │ │
-                │      │   Maven + JUnit)     │            └──────────────────┘ │
-                │      └──────────┬──────────┘            ┌──────────────────┐ │
-                │                 └──────────────────────►│    Redis :6379    │ │
-                │                  (shared job queue)      │ sessions + queue  │ │
-                │                                          └──────────────────┘ │
-                └──────────────────────────────────────────────────────────┘
+                ┌───────────────────────────────────────────────────────────┐
+  Browser ──────┼─►  Frontend (React + Monaco, static)                       │
+  :5173         │        │  REST + WebSocket (SockJS/STOMP)                   │
+                │        ▼                                                    │
+                │   Backend — Spring Boot :8080                               │
+                │     ├ SubmissionExecutor (paiza | piston | judge0 | demo)   │
+                │     ├ HarnessSupport (assemble single-file Main.java)       │
+                │     ├ WebSocket streaming + JWT security                    │
+                │     └ JPA / Flyway                                          │
+                │        │                         │                          │
+                │        ▼                         ▼ HTTP                     │
+                │   PostgreSQL (+ Redis)     Code-exec API (Paiza/Piston)     │
+                │   Supabase    Upstash      compiles & runs Java             │
+                └───────────────────────────────────────────────────────────┘
 ```
-
-- **PostgreSQL** hosts both `assessment_db` (the app, via Flyway migrations) and a
-  separate `judge0` database on the same instance.
-- **Redis** is shared between the backend (caching/pub-sub) and Judge0 (job queue).
-- The backend image **bundles `challenge-tests/`** at `/challenge-tests` so
-  `CodeInjectionService` can read the templates at runtime.
 
 ---
 
 ## 🛠️ Tech Stack (100% free & open source)
 
-**Backend:** Java 17, Spring Boot 3.2, Spring Web/Data JPA/Security/WebSocket,
-PostgreSQL 15, Redis 7, Flyway, JJWT, Lombok.
-**Frontend:** React 18, TypeScript, Vite, TailwindCSS, Monaco Editor, SockJS +
-STOMP.js, Axios, Recharts, React Router v6.
-**Execution:** Judge0 CE 1.13.0 (self-hosted), Maven, JUnit 5, MockMvc, AssertJ,
-WireMock (challenge 5), Resilience4j.
-**Runtime:** Docker + Docker Compose.
-
----
-
-## 🧪 Real execution & the custom Judge0 worker
-
-Judge0 CE runs each submission in an isolated, **network-isolated** `isolate`
-sandbox, and stock CE only ships **JDK 13** with **no Maven**. The challenges target
-Java 17 and need Maven, so this project ships a **custom worker image**
-([`docker/judge0/Dockerfile`](docker/judge0/Dockerfile)) built on
-`judge0/judge0:1.13.0` that bakes in, under `/usr/local` (which the sandbox exposes
-read-only):
-
-- **JDK 17** (`/usr/local/jdk17`)
-- **Maven 3.9** (`/usr/local/maven`)
-- a **pre-warmed offline repository** (`/usr/local/m2repo`, ~90 MB) produced by
-  `scripts/warm-and-test.sh`
-
-Each submission is sent as a **multi-file submission** (`language_id` 89) whose
-`run` script does:
-
-```bash
-export JAVA_HOME=/usr/local/jdk17
-export PATH=$JAVA_HOME/bin:/usr/local/maven/bin:$PATH
-mvn -o -q -Dsurefire.useFile=false -Dmaven.repo.local=/usr/local/m2repo test
-```
-
-`judge0.conf` raises the sandbox caps to fit a Spring Boot test run
-(`MAX_CPU_TIME_LIMIT=120`, `MAX_WALL_TIME_LIMIT=300`, `MAX_MEMORY_LIMIT=2048000`,
-`MAX_MAX_PROCESSES_AND_OR_THREADS=256`), and the backend sends matching per-submission
-limits. A full run takes ~25-35s of CPU and ~380 MB.
-
-This has been verified end-to-end: submitting the reference solution for challenge 1
-scores **100 (3/3)**, deliberately broken code scores **67 (2/3)** with the right
-test failing, and challenge 6 (security/JWT, a different dependency set) scores
-**100 (5/5)** — all executed for real inside the Judge0 sandbox.
+**Backend:** Java 17, Spring Boot 3.2, Spring Web / Data JPA / Security / WebSocket,
+PostgreSQL, Flyway, JJWT, Lombok; pluggable executors calling Paiza/Piston/Judge0.
+**Frontend:** React 18, TypeScript, Vite, TailwindCSS, Monaco Editor, SockJS + STOMP.js,
+Axios, Recharts, React Router v6.
+**Execution:** Paiza.io API (default), Piston (self-host), or Judge0 (Maven/JUnit).
+**Hosting:** Render + Supabase + Upstash (all free tiers).
 
 ---
 
@@ -273,30 +204,48 @@ test failing, and challenge 6 (security/JWT, a different dependency set) scores
 
 ```
 .
-├── docker-compose.yml          # all five services on assessment-network
-├── judge0.conf                 # Judge0 CE configuration
-├── db/init-judge0-db.sql       # creates the separate judge0 database
-├── challenge-tests/            # 6 Maven projects (templates + JUnit suites)
-│   └── challenge-1 … challenge-6
+├── docker-compose.yml          # postgres, redis, backend, frontend (+ judge0 profile)
+├── render.yaml                 # Render Blueprint: backend (Docker) + frontend (static)
+├── DEPLOY.md                   # free deploy guide (Render + Supabase + Upstash + Paiza)
+├── challenge-solutions/        # reference answers for the 6 challenges
 ├── backend/                    # Spring Boot API
 │   ├── Dockerfile
-│   └── src/main/java/com/assessment/{config,controller,service,model,repository,security,dto,websocket,converter,exception}
-└── frontend/                   # React + Vite SPA
-    ├── Dockerfile, nginx.conf
-    └── src/{api,hooks,components,pages,store,types}
+│   └── src/main/
+│       ├── java/com/assessment/{config,controller,service,model,repository,security,dto,websocket,converter,exception}
+│       │   service/ ── PaizaService, PaizaExecutor, PistonService, PistonExecutor,
+│       │                Judge0Service, Judge0Executor, DemoExecutor, HarnessSupport,
+│       │                SubmissionExecutor, SubmissionProcessor, …
+│       └── resources/
+│           ├── challenges/challenge-{1..6}.harness.java   # server-side test harnesses
+│           └── db/migration/V1..V8                        # schema + challenge content
+├── frontend/                   # React + Vite SPA (api, hooks, components, pages, store, types)
+├── docker/judge0/Dockerfile    # custom Judge0 worker (JDK17 + Maven + warmed repo)
+└── challenge-tests/            # legacy Spring/Maven templates (only used by EXECUTION_MODE=judge0)
 ```
 
 ---
 
-## 🧪 Verifying the build locally
+## 🧪 Judge0 mode (optional, heavyweight)
+
+The original design ran full **Spring Boot + MockMvc/JUnit** suites in a privileged Judge0
+sandbox. That still works: build the custom worker (JDK 17 + Maven + a warmed repo via
+`scripts/warm-and-test.sh`), then:
 
 ```bash
-# Challenge templates compile (run inside any challenge folder):
-mvn -q -f challenge-tests/challenge-1/pom.xml test-compile
+EXECUTION_MODE=judge0 docker compose --profile judge0 up --build
+```
 
-# Backend compiles:
+It needs privileged Docker and ~2–4 GB RAM, which is why the default (and the free-hosting
+path) uses the lightweight Paiza executor instead.
+
+---
+
+## ✅ Verifying locally
+
+```bash
+# Backend compiles / packages
 mvn -q -f backend/pom.xml -DskipTests package
-
-# Frontend type-checks + builds:
+# Frontend type-checks + builds
 cd frontend && npm install && npm run build
+# End-to-end: open http://localhost:5173, run a challenge, paste a challenge-solutions/ answer → 100%
 ```

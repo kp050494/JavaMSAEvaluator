@@ -14,7 +14,7 @@ import java.util.List;
  * (the default).
  */
 @Service
-@ConditionalOnProperty(name = "execution.mode", havingValue = "judge0", matchIfMissing = true)
+@ConditionalOnProperty(name = "execution.mode", havingValue = "judge0")
 public class Judge0Executor implements SubmissionExecutor {
 
     private final CodeInjectionService codeInjectionService;
