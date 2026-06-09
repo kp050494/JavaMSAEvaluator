@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { candidateLogin } from '../api/auth';
+import { warmUpBackend } from '../api/client';
 import { useSession } from '../store/sessionStore';
 
 export default function CandidateEntry() {
@@ -9,12 +10,23 @@ export default function CandidateEntry() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const slowTimer = useRef<number | undefined>(undefined);
+
+  // Wake the free-tier backend as soon as this page opens.
+  useEffect(() => {
+    warmUpBackend();
+    return () => window.clearTimeout(slowTimer.current);
+  }, []);
 
   async function begin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSlow(false);
+    // If it takes a while, it's almost always the free server waking up.
+    slowTimer.current = window.setTimeout(() => setSlow(true), 3500);
     try {
       const auth = await candidateLogin(name.trim(), email.trim());
       loginCandidate({ token: auth.token, sessionId: auth.sessionId ?? '', name: auth.name });
@@ -22,6 +34,7 @@ export default function CandidateEntry() {
     } catch {
       setError('Could not start the assessment. Please check your details and try again.');
     } finally {
+      window.clearTimeout(slowTimer.current);
       setLoading(false);
     }
   }
@@ -31,7 +44,7 @@ export default function CandidateEntry() {
       <div className="card w-full max-w-md p-8">
         <h1 className="font-display text-2xl font-bold text-accent-blue">Begin Assessment</h1>
         <p className="mt-1 text-xs text-txt-secondary">
-          Six Spring Boot challenges · ~97 minutes total
+          Six Java challenges · ~97 minutes total
         </p>
 
         <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs">
@@ -70,8 +83,13 @@ export default function CandidateEntry() {
           </div>
           {error && <p className="text-xs text-accent-red">{error}</p>}
           <button type="submit" disabled={loading} className="btn btn-primary w-full">
-            {loading ? 'Starting…' : 'Begin Assessment'}
+            {loading ? (slow ? 'Waking the server…' : 'Starting…') : 'Begin Assessment'}
           </button>
+          {loading && slow && (
+            <p className="text-center text-[11px] text-txt-muted">
+              First start after a break wakes the free server — this can take up to ~50s. Hang tight.
+            </p>
+          )}
         </form>
       </div>
     </div>

@@ -15,6 +15,17 @@ export const client = axios.create({
   timeout: 130_000, // Judge0 Maven builds can take ~60-90s
 });
 
+/**
+ * Fire-and-forget ping to wake a sleeping free-tier backend (Render spins the
+ * service down after ~15 min idle; the first request then takes ~50s). Calling
+ * this on page load means the backend is usually awake by the time the user acts.
+ */
+export function warmUpBackend(): void {
+  client.get('/api/health', { timeout: 120_000 }).catch(() => {
+    /* ignore — this is best-effort */
+  });
+}
+
 client.interceptors.request.use((config) => {
   const url = config.url ?? '';
   const isRecruiter = url.includes('/api/recruiter');

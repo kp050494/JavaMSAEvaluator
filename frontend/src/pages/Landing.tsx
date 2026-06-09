@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { warmUpBackend } from '../api/client';
 
 const SNIPPET = `@RestController
 @RequestMapping("/api/products")
@@ -28,6 +29,11 @@ function useTypewriter(text: string, speed = 28) {
 export default function Landing() {
   const navigate = useNavigate();
   const typed = useTypewriter(SNIPPET);
+
+  // Wake the free-tier backend early so login/challenges are fast when the user acts.
+  useEffect(() => {
+    warmUpBackend();
+  }, []);
 
   return (
     <div className="grid-bg min-h-screen w-full">
